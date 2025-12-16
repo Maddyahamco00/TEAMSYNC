@@ -51,7 +51,7 @@ teamsync-platform/
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/yourusername/teamsync-platform.git
+git clone https://github.com/Maddyahamco00/TEAMSYNC
 cd teamsync-platform
 ```
 
