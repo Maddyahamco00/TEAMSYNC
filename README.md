@@ -116,5 +116,3 @@ MIT License - see LICENSE file for details
 ---
 
 **Project Duration:** 8 weeks  
-**Start Date:** December 16, 2024  
-**Target Completion:** February 9, 2025
