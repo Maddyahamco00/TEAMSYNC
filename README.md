@@ -51,7 +51,11 @@ teamsync-platform/
 
 1. **Clone the repository**
 ```bash
+<<<<<<< HEAD
 git clone https://github.com/yourusername/teamsync-platform.git
+=======
+git clone https://github.com/Maddyahamco00/TEAMSYNC
+>>>>>>> 3572aa689242e8d924d216ac3e8896914c2b20ac
 cd teamsync-platform
 ```
 
@@ -76,6 +80,7 @@ npm start
 docker-compose up -d
 ```
 
+<<<<<<< HEAD
 5. **Quick Start (Windows)**
 ```bash
 # Run the development startup script
@@ -92,6 +97,8 @@ start-dev.bat
 - ✅ Message history
 - ✅ Navigation between dashboard and chat
 
+=======
+>>>>>>> 3572aa689242e8d924d216ac3e8896914c2b20ac
 ## 📅 Development Progress
 
 ### ✅ Week 1-2: Foundation & Authentication
@@ -101,12 +108,18 @@ start-dev.bat
 - [x] Basic UI layout
 - [x] PostgreSQL schema design
 
+<<<<<<< HEAD
 ### ✅ Week 3-4: Core Messaging Features
 - [x] Workspace/organization structure
 - [x] Real-time messaging with Socket.io
 - [x] Basic chat interface
 - [x] Channel management
 - [x] Message display and input
+=======
+### 🔄 Week 3-4: Core Messaging Features
+- [ ] Workspace/organization structure
+- [ ] Real-time messaging with Socket.io
+>>>>>>> 3572aa689242e8d924d216ac3e8896914c2b20ac
 - [ ] Direct messaging
 - [ ] File upload and sharing
 
@@ -135,5 +148,8 @@ MIT License - see LICENSE file for details
 ---
 
 **Project Duration:** 8 weeks  
+<<<<<<< HEAD
 **Start Date:** December 16, 2024  
 **Target Completion:** February 9, 2025
+=======
+>>>>>>> 3572aa689242e8d924d216ac3e8896914c2b20ac
