@@ -16,9 +16,13 @@ const initialState: MessageState = {
 
 export const fetchMessages = createAsyncThunk(
   'message/fetchMessages',
-  async (channelId: string) => {
-    const response = await api.get(`/messages/channel/${channelId}`);
-    return response.data.data;
+  async (channelId: string, { rejectWithValue }) => {
+    try {
+      const response = await api.get(`/messages/channel/${channelId}`);
+      return response.data.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.error || 'Failed to fetch messages');
+    }
   }
 );
 

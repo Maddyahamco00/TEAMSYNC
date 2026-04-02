@@ -1,11 +1,9 @@
 import express from 'express';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
 import { createError } from '../middleware/errorHandler';
+import { users } from '../store/memoryStore';
 
 const router = express.Router();
-
-// Temporary in-memory storage (replace with database)
-const users: any[] = [];
 
 // Get current user profile
 router.get('/profile', authenticateToken, (req: AuthRequest, res, next) => {

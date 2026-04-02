@@ -4,7 +4,6 @@ import { RootState } from '../store';
 
 const DirectMessages: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
-  const { user } = useSelector((state: RootState) => state.auth);
 
   // Mock users for now
   const users = [

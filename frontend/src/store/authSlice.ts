@@ -18,10 +18,23 @@ interface AuthState {
   error: string | null;
 }
 
+const token = localStorage.getItem('token');
+
+// Decode token to check expiry without a library — don't trust it blindly
+const isTokenValid = (t: string | null): boolean => {
+  if (!t) return false;
+  try {
+    const payload = JSON.parse(atob(t.split('.')[1]));
+    return payload.exp * 1000 > Date.now();
+  } catch {
+    return false;
+  }
+};
+
 const initialState: AuthState = {
   user: null,
-  token: localStorage.getItem('token'),
-  isAuthenticated: !!localStorage.getItem('token'),
+  token: isTokenValid(token) ? token : null,
+  isAuthenticated: isTokenValid(token),
   loading: false,
   error: null,
 };

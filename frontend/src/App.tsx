@@ -30,8 +30,8 @@ function App() {
           <Route path="/" element={<Layout />}>
             <Route index element={<Navigate to="/dashboard" />} />
             <Route path="dashboard" element={<Dashboard />} />
+            <Route path="chat" element={<Chat />} />
           </Route>
-          <Route path="chat" element={<Chat />} />
         </Route>
         
         {/* Catch all route */}

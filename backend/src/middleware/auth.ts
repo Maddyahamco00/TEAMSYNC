@@ -16,14 +16,19 @@ export const authenticateToken = (
   next: NextFunction
 ) => {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+  const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
     return next(createError('Access token required', 401));
   }
 
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    return next(createError('Server configuration error', 500));
+  }
+
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    const decoded = jwt.verify(token, secret) as any;
     req.user = decoded;
     next();
   } catch (error) {

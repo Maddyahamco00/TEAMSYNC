@@ -3,11 +3,15 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import Joi from 'joi';
 import { createError } from '../middleware/errorHandler';
+import { users, generateId } from '../store/memoryStore';
 
 const router = express.Router();
 
-// Temporary in-memory storage (replace with database)
-const users: any[] = [];
+const getJwtSecret = (): string => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error('JWT_SECRET environment variable is not set');
+  return secret;
+};
 
 // Validation schemas
 const registerSchema = Joi.object({
@@ -43,7 +47,7 @@ router.post('/register', async (req, res, next) => {
 
     // Create user
     const user = {
-      id: Date.now().toString(),
+      id: generateId(),
       username,
       email,
       password: hashedPassword,
@@ -59,8 +63,8 @@ router.post('/register', async (req, res, next) => {
     // Generate JWT
     const token = jwt.sign(
       { id: user.id, email: user.email, username: user.username },
-      process.env.JWT_SECRET as string,
-      { expiresIn: '30d' }
+      getJwtSecret(),
+      { expiresIn: '7d' }
     );
 
     res.status(201).json({
@@ -112,8 +116,8 @@ router.post('/login', async (req, res, next) => {
     // Generate JWT
     const token = jwt.sign(
       { id: user.id, email: user.email, username: user.username },
-      process.env.JWT_SECRET as string,
-      { expiresIn:'30d' }
+      getJwtSecret(),
+      { expiresIn: '7d' }
     );
 
     res.json({

@@ -1,20 +1,36 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
 import { fetchMessages } from '../store/messageSlice';
 import MessageInput from './MessageInput';
+import socketService from '../services/socket';
 
 const ChatArea: React.FC = () => {
   const dispatch = useDispatch();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const { messages } = useSelector((state: RootState) => state.message);
   const { currentChannel } = useSelector((state: RootState) => state.workspace);
+  const { user } = useSelector((state: RootState) => state.auth);
 
   useEffect(() => {
     if (currentChannel) {
       dispatch(fetchMessages(currentChannel.id) as any);
+      setTypingUsers([]);
+
+      socketService.onUserTyping(currentChannel.id, (data) => {
+        if (data.userId !== user?.id) {
+          setTypingUsers((prev) => prev.includes(data.username) ? prev : [...prev, data.username]);
+        }
+      });
+
+      socketService.onUserStopTyping(currentChannel.id, (data) => {
+        setTypingUsers((prev) => prev.filter((u) => u !== data.userId));
+      });
+
+      return () => { socketService.offUserTyping(currentChannel.id); };
     }
-  }, [currentChannel, dispatch]);
+  }, [currentChannel, dispatch, user?.id]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -61,6 +77,11 @@ const ChatArea: React.FC = () => {
             </div>
           </div>
         ))}
+        {typingUsers.length > 0 && (
+          <p className="text-xs text-gray-400 italic">
+            {typingUsers.join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing...
+          </p>
+        )}
         <div ref={messagesEndRef} />
       </div>
       

@@ -14,15 +14,13 @@ export const errorHandler = (
   const statusCode = err.statusCode || 500;
   const message = err.message || 'Internal Server Error';
 
-  // Log error in development
   if (process.env.NODE_ENV === 'development') {
-    console.error('Error:', err);
+    console.error('Error:', err.message, err.stack);
   }
 
   res.status(statusCode).json({
     success: false,
-    message,
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    message
   });
 };
 
