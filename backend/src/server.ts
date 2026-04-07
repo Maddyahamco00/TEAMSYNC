@@ -10,6 +10,7 @@ import authRoutes from './routes/auth';
 import userRoutes from './routes/user';
 import workspaceRoutes from './routes/workspace';
 import messageRoutes from './routes/messages';
+import notificationRoutes from './routes/notifications';
 import { errorHandler } from './middleware/errorHandler';
 import { setupSocketIO } from './services/socketService';
 
@@ -31,8 +32,15 @@ const PORT = process.env.PORT || 5000;
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { success: false, message: 'Too many requests, please try again later' }
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { success: false, message: 'Too many login attempts, please try again later' }
 });
 
 // Middleware
@@ -51,10 +59,11 @@ app.get('/health', (req, res) => {
 });
 
 // Routes
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/workspaces', workspaceRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Socket.IO setup
 setupSocketIO(io);

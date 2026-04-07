@@ -1,6 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
-import { messages, channels, generateId } from '../store/memoryStore';
+import prisma from '../utils/prisma';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -11,7 +11,13 @@ interface MessageData {
   content: string;
   channelId?: string;
   recipientId?: string;
+  parentMessageId?: string;
 }
+
+const extractMentions = (content: string): string[] => {
+  const matches = content.match(/@(\w+)/g);
+  return matches ? matches.map(m => m.slice(1)) : [];
+};
 
 const isValidMessageData = (data: any): data is MessageData =>
   data &&
@@ -30,7 +36,7 @@ export const setupSocketIO = (io: Server) => {
 
     try {
       const decoded = jwt.verify(token, secret) as any;
-      socket.userId = decoded.id;
+      socket.userId = decoded.userId;
       socket.username = decoded.username;
       next();
     } catch {
@@ -39,77 +45,182 @@ export const setupSocketIO = (io: Server) => {
   });
 
   io.on('connection', (socket: AuthenticatedSocket) => {
+    console.log(`User ${socket.username} connected`);
+
     socket.join(`user:${socket.userId}`);
 
-    socket.on('join_channel', (channelId: string) => {
-      if (typeof channelId === 'string') socket.join(`channel:${channelId}`);
-    });
+    // Mark user online
+    prisma.user.update({
+      where: { id: socket.userId! },
+      data: { status: 'online' }
+    }).catch(console.error);
 
-    socket.on('leave_channel', (channelId: string) => {
-      if (typeof channelId === 'string') socket.leave(`channel:${channelId}`);
-    });
+    // Join user's channels
+    prisma.channelMember.findMany({
+      where: { userId: socket.userId! },
+      select: { channelId: true }
+    }).then(memberships => {
+      memberships.forEach(membership => {
+        socket.join(`channel:${membership.channelId}`);
+      });
+    }).catch(console.error);
 
-    socket.on('send_message', (data: unknown) => {
-      if (!isValidMessageData(data)) return;
+    // Handle sending messages
+    socket.on('sendMessage', async (data: MessageData) => {
+      if (!isValidMessageData(data)) {
+        socket.emit('error', { message: 'Invalid message data' });
+        return;
+      }
 
-      if (data.channelId) {
-        const channel = channels.find(c => c.id === data.channelId);
-        if (!channel || !channel.members.includes(socket.userId!)) return;
+      try {
+        if (data.channelId) {
+          // Check if user has access to channel
+          const channelMember = await prisma.channelMember.findFirst({
+            where: {
+              channelId: data.channelId,
+              userId: socket.userId!
+            }
+          });
 
-        const message = {
-          id: generateId(),
-          content: data.content.trim(),
-          userId: socket.userId!,
-          username: socket.username!,
-          channelId: data.channelId,
-          edited: false,
-          createdAt: new Date(),
-        };
-        messages.push(message);
+          if (!channelMember) {
+            socket.emit('error', { message: 'Access denied' });
+            return;
+          }
 
-        // Emit to all channel members including sender
-        io.to(`channel:${data.channelId}`).emit('new_message', message);
-      } else if (data.recipientId) {
-        const message = {
-          id: generateId(),
-          content: data.content.trim(),
-          userId: socket.userId!,
-          username: socket.username!,
-          channelId: data.recipientId,
-          edited: false,
-          createdAt: new Date(),
-        };
-        messages.push(message);
+          // Create message
+          const message = await prisma.message.create({
+            data: {
+              content: data.content,
+              userId: socket.userId!,
+              username: socket.username!,
+              channelId: data.channelId
+            },
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  username: true,
+                  fullName: true,
+                  avatar: true
+                }
+              }
+            }
+          });
 
-        socket.to(`user:${data.recipientId}`).emit('new_message', message);
-        socket.emit('new_message', message);
+          // Handle mentions
+          const mentions = extractMentions(data.content);
+          if (mentions.length > 0) {
+            const mentionedUsers = await prisma.user.findMany({
+              where: {
+                username: { in: mentions }
+              },
+              select: { id: true, username: true }
+            });
+
+            for (const user of mentionedUsers) {
+              await prisma.notification.create({
+                data: {
+                  userId: user.id,
+                  type: 'MENTION',
+                  messageId: message.id,
+                  channelId: data.channelId,
+                  fromUsername: socket.username!,
+                  content: data.content
+                }
+              });
+
+              // Emit notification to mentioned user
+              io.to(`user:${user.id}`).emit('notification', {
+                id: message.id,
+                type: 'mention',
+                fromUsername: socket.username!,
+                channelId: data.channelId,
+                content: data.content,
+                createdAt: message.createdAt
+              });
+            }
+          }
+
+          // Broadcast message to channel
+          io.to(`channel:${data.channelId}`).emit('message', message);
+
+        } else if (data.recipientId) {
+          // Direct message (not implemented yet)
+          socket.emit('error', { message: 'Direct messages not implemented yet' });
+        }
+      } catch (error) {
+        console.error('Error sending message:', error);
+        socket.emit('error', { message: 'Failed to send message' });
       }
     });
 
-    socket.on('typing_start', (data: { channelId?: string }) => {
-      if (typeof data?.channelId === 'string') {
-        socket.to(`channel:${data.channelId}`).emit('user_typing', {
+    // Handle typing indicators
+    socket.on('typing', (data: { channelId: string; isTyping: boolean }) => {
+      if (data.channelId) {
+        socket.to(`channel:${data.channelId}`).emit('userTyping', {
           userId: socket.userId,
           username: socket.username,
-          channelId: data.channelId
+          isTyping: data.isTyping
         });
       }
     });
 
-    socket.on('typing_stop', (data: { channelId?: string }) => {
-      if (typeof data?.channelId === 'string') {
-        socket.to(`channel:${data.channelId}`).emit('user_stop_typing', {
-          userId: socket.userId,
-          channelId: data.channelId
+    // Handle joining channels
+    socket.on('joinChannel', async (channelId: string) => {
+      try {
+        const membership = await prisma.channelMember.findFirst({
+          where: {
+            channelId,
+            userId: socket.userId!
+          }
         });
+
+        if (membership) {
+          socket.join(`channel:${channelId}`);
+          socket.emit('joinedChannel', { channelId });
+        } else {
+          socket.emit('error', { message: 'Access denied to channel' });
+        }
+      } catch (error) {
+        socket.emit('error', { message: 'Failed to join channel' });
       }
     });
 
-    socket.on('disconnect', () => {
-      socket.broadcast.emit('user_status_change', {
-        userId: socket.userId,
-        status: 'offline'
-      });
+    // Handle leaving channels
+    socket.on('leaveChannel', (channelId: string) => {
+      socket.leave(`channel:${channelId}`);
+      socket.emit('leftChannel', { channelId });
+    });
+
+    // Handle disconnection
+    socket.on('disconnect', async () => {
+      console.log(`User ${socket.username} disconnected`);
+
+      // Mark user offline after a delay (to handle page refreshes)
+      setTimeout(async () => {
+        try {
+          // Check if user is still connected on any socket
+          const connectedSockets = await io.fetchSockets();
+          const userStillConnected = connectedSockets.some(s =>
+            (s as AuthenticatedSocket).userId === socket.userId
+          );
+
+          if (!userStillConnected) {
+            await prisma.user.update({
+              where: { id: socket.userId! },
+              data: { status: 'offline' }
+            });
+
+            // Broadcast offline status
+            io.emit('userStatus', {
+              userId: socket.userId,
+              status: 'offline'
+            });
+          }
+        } catch (error) {
+          console.error('Error updating user status:', error);
+        }
+      }, 5000); // 5 second delay
     });
   });
 };

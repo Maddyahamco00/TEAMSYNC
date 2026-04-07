@@ -30,9 +30,9 @@ export const fetchUserProfile = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await userAPI.getProfile();
-      return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch profile');
+      return response.data.data;
+    } catch {
+      return rejectWithValue(null);
     }
   }
 );
@@ -42,7 +42,7 @@ export const updateUserProfile = createAsyncThunk(
   async (userData: Partial<User>, { rejectWithValue }) => {
     try {
       const response = await userAPI.updateProfile(userData);
-      return response.data;
+      return response.data.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to update profile');
     }
@@ -54,7 +54,7 @@ export const fetchUsers = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await userAPI.getUsers();
-      return response.data;
+      return response.data.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch users');
     }
@@ -67,6 +67,11 @@ const userSlice = createSlice({
   reducers: {
     clearError: (state) => {
       state.error = null;
+    },
+    statusChange: (state, action) => {
+      const { userId, status } = action.payload;
+      const user = state.users.find(u => u.id === userId);
+      if (user) user.status = status;
     },
   },
   extraReducers: (builder) => {

@@ -1,10 +1,10 @@
 import { io, Socket } from 'socket.io-client';
 import { store } from '../store';
-import { addMessage } from '../store/messageSlice';
+import { addMessage, addNotification } from '../store/messageSlice';
 
 class SocketService {
   private socket: Socket | null = null;
-  private typingListeners: Map<string, (data: { userId: string; username: string }) => void> = new Map();
+  private typingListeners: Map<string, (data: { userId: string; username?: string }) => void> = new Map();
 
   connect(token: string) {
     if (this.socket?.connected) return;
@@ -19,6 +19,10 @@ class SocketService {
       store.dispatch(addMessage(message));
     });
 
+    this.socket.on('notification', (notification) => {
+      store.dispatch(addNotification(notification));
+    });
+
     this.socket.on('user_typing', (data: { userId: string; username: string; channelId: string }) => {
       const listener = this.typingListeners.get(data.channelId);
       if (listener) listener(data);
@@ -26,7 +30,11 @@ class SocketService {
 
     this.socket.on('user_stop_typing', (data: { userId: string; channelId: string }) => {
       const listener = this.typingListeners.get(`stop:${data.channelId}`);
-      if (listener) listener(data);
+      if (listener) listener({ userId: data.userId });
+    });
+
+    this.socket.on('user_status_change', (data: { userId: string; status: string }) => {
+      store.dispatch({ type: 'user/statusChange', payload: data });
     });
 
     this.socket.on('connect_error', (error) => {
@@ -50,6 +58,11 @@ class SocketService {
     this.socket?.emit('leave_channel', channelId);
   }
 
+  joinDM(recipientId: string) {
+    // DMs use the user's personal room — already joined on connect
+    // Just a client-side marker so MessageInput knows the recipient
+  }
+
   sendMessage(data: { content: string; channelId?: string; recipientId?: string }) {
     this.socket?.emit('send_message', data);
   }
@@ -62,7 +75,7 @@ class SocketService {
     this.socket?.emit('typing_stop', { channelId });
   }
 
-  onUserTyping(channelId: string, cb: (data: { userId: string; username: string }) => void) {
+  onUserTyping(channelId: string, cb: (data: { userId: string; username?: string }) => void) {
     this.typingListeners.set(channelId, cb);
   }
 

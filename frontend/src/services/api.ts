@@ -33,6 +33,11 @@ api.interceptors.response.use(
       localStorage.removeItem('token');
       window.location.href = '/login';
     }
+    if (error.response?.status === 403 && !isAuthEndpoint &&
+        error.response?.data?.message?.toLowerCase().includes('token')) {
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+    }
     return Promise.reject(error);
   }
 );
@@ -51,10 +56,25 @@ export const authAPI = {
 // User API
 export const userAPI = {
   getProfile: () => api.get('/users/profile'),
-  
   updateProfile: (userData: any) => api.put('/users/profile', userData),
-  
   getUsers: () => api.get('/users'),
+};
+
+// Workspace API extras
+export const workspaceAPI = {
+  join: (workspaceId: string) => api.post(`/workspaces/${workspaceId}/join`),
+};
+
+// Notifications API
+export const notificationsAPI = {
+  getAll: () => api.get('/notifications'),
+  markRead: () => api.patch('/notifications/read'),
+};
+
+// Search API
+export const searchAPI = {
+  messages: (q: string, workspaceId?: string) =>
+    api.get('/messages/search', { params: { q, workspaceId } }),
 };
 
 export default api;

@@ -45,8 +45,8 @@ export const loginUser = createAsyncThunk(
   async (credentials: { email: string; password: string }, { rejectWithValue }) => {
     try {
       const response = await authAPI.login(credentials);
-      localStorage.setItem('token', response.data.token);
-      return response.data;
+      localStorage.setItem('token', response.data.data.token);
+      return response.data.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Login failed');
     }
@@ -58,8 +58,8 @@ export const registerUser = createAsyncThunk(
   async (userData: { username: string; email: string; password: string; fullName: string }, { rejectWithValue }) => {
     try {
       const response = await authAPI.register(userData);
-      localStorage.setItem('token', response.data.token);
-      return response.data;
+      localStorage.setItem('token', response.data.data.token);
+      return response.data.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Registration failed');
     }

@@ -32,8 +32,7 @@
     "emitDecoratorMetadata": true
   },
   "include": [
-    "src/**/*",
-    "../shared/types/**/*"
+    "src/**/*"
   ],
   "exclude": [
     "node_modules",

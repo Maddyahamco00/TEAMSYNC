@@ -3,6 +3,7 @@ import authReducer from './authSlice';
 import userReducer from './userSlice';
 import workspaceReducer from './workspaceSlice';
 import messageReducer from './messageSlice';
+import uiReducer from './uiSlice';
 
 export const store = configureStore({
   reducer: {
@@ -10,6 +11,7 @@ export const store = configureStore({
     user: userReducer,
     workspace: workspaceReducer,
     message: messageReducer,
+    ui: uiReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

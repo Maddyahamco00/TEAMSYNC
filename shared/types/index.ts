@@ -70,11 +70,11 @@ export interface Message {
   content: string;
   userId: string;
   username: string;
-  channelId?: string;
+  channelId: string;
   recipientId?: string;
-  timestamp: Date;
-  edited?: boolean;
+  edited: boolean;
   editedAt?: Date;
+  createdAt: Date;
 }
 
 export interface MessageData {

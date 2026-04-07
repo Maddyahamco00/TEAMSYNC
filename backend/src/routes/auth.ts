@@ -1,9 +1,10 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import jwt, { type Secret, type SignOptions } from 'jsonwebtoken';
 import Joi from 'joi';
 import { createError } from '../middleware/errorHandler';
-import { users, generateId } from '../store/memoryStore';
+import prisma from '../utils/prisma';
+import { type AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
 
@@ -37,7 +38,15 @@ router.post('/register', async (req, res, next) => {
     const { username, email, password, fullName } = value;
 
     // Check if user already exists
-    const existingUser = users.find(u => u.email === email || u.username === username);
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email },
+          { username }
+        ]
+      }
+    });
+
     if (existingUser) {
       return next(createError('User already exists', 409));
     }
@@ -46,41 +55,36 @@ router.post('/register', async (req, res, next) => {
     const hashedPassword = await bcrypt.hash(password, 12);
 
     // Create user
-    const user = {
-      id: generateId(),
-      username,
-      email,
-      password: hashedPassword,
-      fullName,
-      avatar: null,
-      status: 'offline',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+    const user = await prisma.user.create({
+      data: {
+        username,
+        email,
+        password: hashedPassword,
+        fullName,
+        status: 'online'
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        fullName: true,
+        avatar: true,
+        status: true,
+        createdAt: true
+      }
+    });
 
-    users.push(user);
-
-    // Generate JWT
+    // Generate JWT token
     const token = jwt.sign(
-      { id: user.id, email: user.email, username: user.username },
+      { userId: user.id, username: user.username },
       getJwtSecret(),
-      { expiresIn: '7d' }
+      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
 
     res.status(201).json({
       success: true,
       message: 'User registered successfully',
-      data: {
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          fullName: user.fullName,
-          avatar: user.avatar,
-          status: user.status
-        },
-        token
-      }
+      data: { user, token }
     });
   } catch (error) {
     next(error);
@@ -98,7 +102,10 @@ router.post('/login', async (req, res, next) => {
     const { email, password } = value;
 
     // Find user
-    const user = users.find(u => u.email === email);
+    const user = await prisma.user.findUnique({
+      where: { email }
+    });
+
     if (!user) {
       return next(createError('Invalid credentials', 401));
     }
@@ -109,31 +116,33 @@ router.post('/login', async (req, res, next) => {
       return next(createError('Invalid credentials', 401));
     }
 
-    // Update user status
-    user.status = 'online';
-    user.updatedAt = new Date();
+    // Update user status to online
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { status: 'online' }
+    });
 
-    // Generate JWT
+    // Generate JWT token
     const token = jwt.sign(
-      { id: user.id, email: user.email, username: user.username },
+      { userId: user.id, username: user.username },
       getJwtSecret(),
-      { expiresIn: '7d' }
+      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
+
+    const userResponse = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      fullName: user.fullName,
+      avatar: user.avatar,
+      status: 'online',
+      createdAt: user.createdAt
+    };
 
     res.json({
       success: true,
       message: 'Login successful',
-      data: {
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          fullName: user.fullName,
-          avatar: user.avatar,
-          status: user.status
-        },
-        token
-      }
+      data: { user: userResponse, token }
     });
   } catch (error) {
     next(error);
@@ -141,12 +150,59 @@ router.post('/login', async (req, res, next) => {
 });
 
 // Logout
-router.post('/logout', (req, res) => {
-  // In a real app, you might want to blacklist the token
-  res.json({
-    success: true,
-    message: 'Logout successful'
-  });
+router.post('/logout', async (req: AuthRequest, res, next) => {
+  try {
+    // In a stateless JWT system, logout is handled client-side
+    // But we can update user status if we have user info from middleware
+    const userId = req.user?.id;
+    if (userId) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { status: 'offline' }
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Logged out successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get current user
+router.get('/me', async (req: AuthRequest, res, next) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return next(createError('Unauthorized', 401));
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        fullName: true,
+        avatar: true,
+        status: true,
+        createdAt: true
+      }
+    });
+
+    if (!user) {
+      return next(createError('User not found', 404));
+    }
+
+    res.json({
+      success: true,
+      data: { user }
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 export default router;

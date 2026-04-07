@@ -1,163 +1,192 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 import { RootState } from '../store';
-import { fetchUserProfile } from '../store/userSlice';
+import { fetchUserProfile, fetchUsers } from '../store/userSlice';
+import { fetchWorkspaces } from '../store/workspaceSlice';
+import { workspaceAPI } from '../services/api';
 
 const Dashboard: React.FC = () => {
   const dispatch = useDispatch();
   const { user } = useSelector((state: RootState) => state.auth);
   const { profile } = useSelector((state: RootState) => state.user);
+  const { workspaces, currentWorkspace, channels } = useSelector((state: RootState) => state.workspace);
+  const [joinId, setJoinId] = useState('');
+  const [joining, setJoining] = useState(false);
 
   useEffect(() => {
     dispatch(fetchUserProfile() as any);
+    dispatch(fetchWorkspaces() as any);
+    dispatch(fetchUsers() as any);
   }, [dispatch]);
+
+  const displayUser = profile || user;
+
+  const handleCopyInvite = () => {
+    if (!currentWorkspace) return;
+    navigator.clipboard.writeText(currentWorkspace.id);
+    toast.success('Workspace ID copied! Share it with your team.');
+  };
+
+  const handleJoinWorkspace = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!joinId.trim()) return;
+    setJoining(true);
+    try {
+      await workspaceAPI.join(joinId.trim());
+      dispatch(fetchWorkspaces() as any);
+      toast.success('Joined workspace!');
+      setJoinId('');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to join workspace');
+    } finally {
+      setJoining(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
-      {/* Welcome Section */}
+      {/* Welcome */}
       <div className="bg-white rounded-lg shadow p-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">
+        <h1 className="text-2xl font-bold text-gray-900 mb-1">
           Welcome back, {user?.fullName || user?.username}! 👋
         </h1>
-        <p className="text-gray-600">
-          Ready to collaborate with your team? Let's get started with TeamSync.
-        </p>
+        <p className="text-gray-500 text-sm">Ready to collaborate with your team?</p>
       </div>
 
-      {/* Quick Stats */}
+      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="shrink-0">
-              <div className="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
+        {[
+          { label: 'Workspaces', value: workspaces.length, color: 'bg-blue-500' },
+          { label: 'Channels', value: channels.length, color: 'bg-green-500' },
+          { label: 'Team Members', value: currentWorkspace?.members?.length ?? 0, color: 'bg-purple-500' },
+        ].map(({ label, value, color }) => (
+          <div key={label} className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className={`w-8 h-8 ${color} rounded-md flex items-center justify-center`}>
+                <span className="text-white text-sm font-bold">{value}</span>
               </div>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Messages</p>
-              <p className="text-2xl font-semibold text-gray-900">0</p>
+              <p className="ml-4 text-sm font-medium text-gray-500">{label}</p>
             </div>
           </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="shrink-0">
-              <div className="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-              </div>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Channels</p>
-              <p className="text-2xl font-semibold text-gray-900">0</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="shrink-0">
-              <div className="w-8 h-8 bg-purple-500 rounded-md flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                </svg>
-              </div>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Team Members</p>
-              <p className="text-2xl font-semibold text-gray-900">1</p>
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* Quick Actions */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-        <Link
-          to="/chat"
-          className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-        >
-          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-          </svg>
-          Start Chatting
-        </Link>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Team Members */}
+        <div className="bg-white rounded-lg shadow p-6 space-y-4">
+          <h2 className="text-lg font-semibold text-gray-900">Team Members</h2>
+
+        {/* Invite */}
+          {currentWorkspace ? (
+            <div className="p-3 bg-blue-50 rounded-md">
+              <p className="text-xs text-gray-500 mb-1">Share this Workspace ID to invite members:</p>
+              <div className="flex items-center space-x-2">
+                <code className="text-xs bg-white border border-gray-200 rounded px-2 py-1 flex-1 truncate">
+                  {currentWorkspace.id}
+                </code>
+                <button
+                  onClick={handleCopyInvite}
+                  className="text-xs px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 bg-yellow-50 border border-yellow-100 rounded-md">
+              <p className="text-xs text-gray-600 mb-2">You don't have a workspace yet.</p>
+              <Link to="/chat" className="text-xs px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600">
+                Go to Chat → Create one
+              </Link>
+            </div>
+          )}
+
+          {/* Join workspace */}
+          <form onSubmit={handleJoinWorkspace} className="space-y-2">
+            <p className="text-xs font-medium text-gray-500">Join a workspace with an ID:</p>
+            <div className="flex space-x-2">
+              <input
+                type="text"
+                value={joinId}
+                onChange={e => setJoinId(e.target.value)}
+                placeholder="Paste workspace ID"
+                className="flex-1 border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                type="submit"
+                disabled={joining || !joinId.trim()}
+                className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+              >
+                {joining ? '...' : 'Join'}
+              </button>
+            </div>
+          </form>
+
+          <Link to="/chat" className="inline-flex items-center text-sm text-blue-500 hover:underline">
+            Go to Chat →
+          </Link>
+        </div>
+
+        {/* Your Profile */}
+        <div className="bg-white rounded-lg shadow p-6 space-y-3">
+          <h2 className="text-lg font-semibold text-gray-900">Your Profile</h2>
+          {displayUser ? (
+            <>
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-lg font-bold">
+                    {displayUser.fullName?.charAt(0) || displayUser.username?.charAt(0)}
+                  </span>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">{displayUser.fullName}</p>
+                  <p className="text-sm text-gray-500">@{displayUser.username}</p>
+                </div>
+              </div>
+              <div className="space-y-2 pt-2 border-t border-gray-100">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Email</span>
+                  <span className="text-gray-900">{displayUser.email}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Status</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    {displayUser.status || 'online'}
+                  </span>
+                </div>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-gray-400">Loading profile...</p>
+          )}
+        </div>
       </div>
 
       {/* Getting Started */}
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Getting Started</h2>
         <div className="space-y-3">
-          <div className="flex items-center p-3 bg-gray-50 rounded-md">
-            <div className="shrink-0">
-              <div className="w-6 h-6 bg-primary-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-xs font-bold">1</span>
+          {[
+            { step: 1, title: 'Create a workspace', desc: 'Click + next to the workspace name in the Chat sidebar' },
+            { step: 2, title: 'Create a channel', desc: 'Click + next to Channels — letters and numbers only' },
+            { step: 3, title: 'Invite team members', desc: 'Copy your Workspace ID above and share it — they paste it in "Join a workspace"' },
+            { step: 4, title: 'Start messaging', desc: 'Select a channel and send messages in real-time' },
+          ].map(({ step, title, desc }) => (
+            <div key={step} className="flex items-start p-3 bg-blue-50 border border-blue-100 rounded-md">
+              <div className="shrink-0 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center mt-0.5">
+                <span className="text-white text-xs font-bold">{step}</span>
               </div>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-900">Set up your profile</p>
-              <p className="text-sm text-gray-500">Add your avatar and update your status</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center p-3 bg-gray-50 rounded-md opacity-50">
-            <div className="shrink-0">
-              <div className="w-6 h-6 bg-gray-400 rounded-full flex items-center justify-center">
-                <span className="text-white text-xs font-bold">2</span>
+              <div className="ml-3 flex-1">
+                <p className="text-sm font-medium text-gray-900">{title}</p>
+                <p className="text-sm text-gray-500">{desc}</p>
               </div>
+              <Link to="/chat" className="text-xs text-blue-500 hover:underline ml-2 mt-0.5">Go →</Link>
             </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-900">Create your first channel</p>
-              <p className="text-sm text-gray-500">Start collaborating with your team</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center p-3 bg-gray-50 rounded-md opacity-50">
-            <div className="shrink-0">
-              <div className="w-6 h-6 bg-gray-400 rounded-full flex items-center justify-center">
-                <span className="text-white text-xs font-bold">3</span>
-              </div>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-900">Invite team members</p>
-              <p className="text-sm text-gray-500">Grow your workspace community</p>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
-
-      {/* User Profile Info */}
-      {profile && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Your Profile</h2>
-          <div className="space-y-3">
-            <div>
-              <label className="text-sm font-medium text-gray-500">Full Name</label>
-              <p className="text-sm text-gray-900">{profile.fullName}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-500">Username</label>
-              <p className="text-sm text-gray-900">@{profile.username}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-500">Email</label>
-              <p className="text-sm text-gray-900">{profile.email}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-500">Status</label>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                {profile.status}
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

@@ -47,7 +47,25 @@ export interface MessageRecord {
   createdAt: Date;
 }
 
+export interface NotificationRecord {
+  id: string;
+  userId: string;
+  type: 'mention' | 'reply';
+  messageId: string;
+  channelId: string;
+  fromUsername: string;
+  content: string;
+  read: boolean;
+  createdAt: Date;
+}
+
+export interface ThreadReplyRecord extends MessageRecord {
+  parentMessageId: string;
+}
+
 export const users: UserRecord[] = [];
 export const workspaces: WorkspaceRecord[] = [];
 export const channels: ChannelRecord[] = [];
 export const messages: MessageRecord[] = [];
+export const notifications: NotificationRecord[] = [];
+export const threadReplies: ThreadReplyRecord[] = [];

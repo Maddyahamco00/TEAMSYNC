@@ -1,29 +1,33 @@
 import express from 'express';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
 import { createError } from '../middleware/errorHandler';
-import { users } from '../store/memoryStore';
+import prisma from '../utils/prisma';
 
 const router = express.Router();
 
 // Get current user profile
-router.get('/profile', authenticateToken, (req: AuthRequest, res, next) => {
+router.get('/profile', authenticateToken, async (req: AuthRequest, res, next) => {
   try {
-    const user = users.find(u => u.id === req.user?.id);
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        fullName: true,
+        avatar: true,
+        status: true,
+        createdAt: true
+      }
+    });
+
     if (!user) {
       return next(createError('User not found', 404));
     }
 
     res.json({
       success: true,
-      data: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        fullName: user.fullName,
-        avatar: user.avatar,
-        status: user.status,
-        createdAt: user.createdAt
-      }
+      data: { user }
     });
   } catch (error) {
     next(error);
@@ -31,31 +35,59 @@ router.get('/profile', authenticateToken, (req: AuthRequest, res, next) => {
 });
 
 // Update user profile
-router.put('/profile', authenticateToken, (req: AuthRequest, res, next) => {
+router.put('/profile', authenticateToken, async (req: AuthRequest, res, next) => {
   try {
-    const user = users.find(u => u.id === req.user?.id);
-    if (!user) {
-      return next(createError('User not found', 404));
-    }
-
     const { fullName, avatar, status } = req.body;
 
-    if (fullName) user.fullName = fullName;
-    if (avatar) user.avatar = avatar;
-    if (status) user.status = status;
-    user.updatedAt = new Date();
+    const user = await prisma.user.update({
+      where: { id: req.user!.id },
+      data: {
+        ...(fullName && { fullName }),
+        ...(avatar !== undefined && { avatar }),
+        ...(status && { status })
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        fullName: true,
+        avatar: true,
+        status: true,
+        createdAt: true
+      }
+    });
 
     res.json({
       success: true,
       message: 'Profile updated successfully',
-      data: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        fullName: user.fullName,
-        avatar: user.avatar,
-        status: user.status
+      data: { user }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get user status
+router.get('/status/:userId', authenticateToken, async (req: AuthRequest, res, next) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        username: true,
+        status: true
       }
+    });
+
+    if (!user) {
+      return next(createError('User not found', 404));
+    }
+
+    res.json({
+      success: true,
+      data: { user }
     });
   } catch (error) {
     next(error);
@@ -63,19 +95,22 @@ router.put('/profile', authenticateToken, (req: AuthRequest, res, next) => {
 });
 
 // Get all users (for mentions, etc.)
-router.get('/', authenticateToken, (req: AuthRequest, res, next) => {
+router.get('/', authenticateToken, async (req: AuthRequest, res, next) => {
   try {
-    const userList = users.map(user => ({
-      id: user.id,
-      username: user.username,
-      fullName: user.fullName,
-      avatar: user.avatar,
-      status: user.status
-    }));
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        username: true,
+        fullName: true,
+        avatar: true,
+        status: true
+      },
+      orderBy: { username: 'asc' }
+    });
 
     res.json({
       success: true,
-      data: userList
+      data: { users }
     });
   } catch (error) {
     next(error);

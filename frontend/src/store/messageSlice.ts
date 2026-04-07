@@ -1,17 +1,31 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { Message } from '../../../shared/types';
+import { Message } from '../../../shared/types/index';
 import api from '../services/api';
+
+export interface Notification {
+  id: string;
+  userId: string;
+  type: 'mention' | 'reply';
+  messageId: string;
+  channelId: string;
+  fromUsername: string;
+  content: string;
+  read: boolean;
+  createdAt: Date;
+}
 
 interface MessageState {
   messages: Message[];
   loading: boolean;
   error: string | null;
+  notifications: Notification[];
 }
 
 const initialState: MessageState = {
   messages: [],
   loading: false,
   error: null,
+  notifications: [],
 };
 
 export const fetchMessages = createAsyncThunk(
@@ -36,6 +50,19 @@ const messageSlice = createSlice({
     clearMessages: (state) => {
       state.messages = [];
     },
+    editMessage: (state, action) => {
+      const msg = state.messages.find(m => m.id === action.payload.id);
+      if (msg) { msg.content = action.payload.content; msg.edited = true; }
+    },
+    deleteMessage: (state, action) => {
+      state.messages = state.messages.filter(m => m.id !== action.payload);
+    },
+    addNotification: (state, action) => {
+      state.notifications.unshift(action.payload);
+    },
+    markNotificationsRead: (state) => {
+      state.notifications.forEach(n => { n.read = true; });
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -54,5 +81,5 @@ const messageSlice = createSlice({
   },
 });
 
-export const { addMessage, clearMessages } = messageSlice.actions;
+export const { addMessage, clearMessages, editMessage, deleteMessage, addNotification, markNotificationsRead } = messageSlice.actions;
 export default messageSlice.reducer;
